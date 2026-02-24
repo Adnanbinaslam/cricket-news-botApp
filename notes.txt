@@ -1,0 +1,56 @@
+ VISUAL FLOW
+ 
+Step 1: Request
+┌──────────────────────────────────────────┐
+│ String rssUrl =                          │
+│ "https://espncricinfo.com/rss/..."       │
+│ URL feedUrl = new URL(rssUrl);           │
+└──────────────────────────────────────────┘
+              ↓
+              
+Step 2: HTTP GET
+┌──────────────────────────────────────────┐
+│ GET https://espncricinfo.com/rss/...     │
+└──────────────────────────────────────────┘
+              ↓
+              
+Step 3: Receive XML
+┌──────────────────────────────────────────┐
+│ <?xml version="1.0"?>                    │
+│ <rss><channel>                           │
+│   <item><title>News</title></item>       │
+│ </channel></rss>                         │
+└──────────────────────────────────────────┘
+              ↓
+              
+Step 4: XmlReader
+┌──────────────────────────────────────────┐
+│ new XmlReader(feedUrl)                   │
+│ - Opens connection                       │
+│ - Reads bytes                            │
+│ - Detects encoding (UTF-8)               │
+└──────────────────────────────────────────┘
+              ↓
+              
+Step 5: ROME Parsing
+┌──────────────────────────────────────────┐
+│ SyndFeedInput input = new                │
+│   SyndFeedInput();                       │
+│ SyndFeed feed = input.build(reader);     │
+│ - Parses XML structure                   │
+│ - Creates Java objects                   │
+└──────────────────────────────────────────┘
+              ↓
+              
+Step 6: Java Objects
+┌──────────────────────────────────────────┐
+│ SyndFeed feed                            │
+│ ├─ title: "ESPNcricinfo News"            │
+│ └─ entries: List<SyndEntry>              │
+│      ├─ entry[0]                         │
+│      │   ├─ title: "India wins"          │
+│      │   ├─ link: "http://..."           │
+│      │   └─ date: Date object            │
+│      └─ entry[1]                         │
+│          └─ ...                          │
+└──────────────────────────────────────────┘
