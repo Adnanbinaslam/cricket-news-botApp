@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class MastodonService {
@@ -27,7 +28,11 @@ public class MastodonService {
     private static final Logger log = LoggerFactory.getLogger(MastodonService.class);
 
     private static final String API_ENDPOINT = "/api/v1/statuses";
-    private final OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build();
     private final Gson gson = new Gson();
 
     /**

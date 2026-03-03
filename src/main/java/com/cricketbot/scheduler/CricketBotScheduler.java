@@ -28,20 +28,8 @@ public class CricketBotScheduler {
     // Add this line inside the class
     private static final Logger log = LoggerFactory.getLogger(CricketBotScheduler.class);
 
-    @Scheduled(cron = "0 0 */3 * * *",zone = "Asia/Kolkata")
-    public void fetchNewsEvery3Hours() {
-        log.info("⏰ [SCHEDULED] Fetching cricket news at {} ", LocalDateTime.now());
-
-        try {
-            int savedCount = newsService.fetchAndSaveNews();
-            log.info("✅ Auto-fetch complete. Saved {} new articles.", savedCount);
-        } catch (Exception e) {
-            log.error("❌ Error in scheduled fetch: {}", e.getMessage());
-        }
-    }
-
-    @Scheduled(cron = "0 0 6 * * *", zone = "Asia/Kolkata")
-    public void fetchAt6AM() {
+    @Scheduled(cron = "0 0 0,4,8,12,16,20 * * *", zone = "Asia/Kolkata")
+    public void fetchNewsEvery4Hours() {
         log.info("⏰ [SCHEDULED] Fetching cricket news at {} ", LocalDateTime.now());
         try {
             int savedCount = newsService.fetchAndSaveNews();
@@ -86,7 +74,7 @@ public class CricketBotScheduler {
             }
 
         } catch (Exception e) {
-            log.error("❌ Error posting to Mastodon: {}", e.getMessage());
+            log.error("❌ Error posting to Mastodon: {}", e);
         }
 
     }
