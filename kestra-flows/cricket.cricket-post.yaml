@@ -20,5 +20,5 @@ triggers:
 tasks:
   - id: post-mastodon
     type: io.kestra.plugin.core.http.Request
-    uri: http://localhost:8081/test/post-now
+    uri: http://localhost:8080/test/post-now
     method: GET

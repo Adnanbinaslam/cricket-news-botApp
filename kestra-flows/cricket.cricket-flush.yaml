@@ -10,5 +10,5 @@ triggers:
 tasks:
   - id: flush-database
     type: io.kestra.plugin.core.http.Request
-    uri: http://localhost:8081/test/cleanup-now
+    uri: http://localhost:8080/test/cleanup-now
     method: GET
