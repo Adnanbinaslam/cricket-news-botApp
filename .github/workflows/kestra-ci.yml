@@ -28,22 +28,23 @@ jobs:
         EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
         DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        KESTRA_PASSWORD: ${{ secrets.KESTRA_PASSWORD }} # Passing password to execution shell context
+
       run: |
         mkdir -p ~/.ssh
         echo "$EC2_SSH_KEY" > ~/.ssh/ec2-key.pem
         chmod 600 ~/.ssh/ec2-key.pem
         ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null
 
-        # Ensure directories exist on remote target server host
-        ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST "mkdir -p ~/apps/cricket-bot/ ~/apps/kestra/flows/"
+        # Ensure directories exist
+        ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
+          "mkdir -p ~/apps/cricket-bot ~/apps/kestra/flows"
 
-        # Copy Spring Boot JAR artifact
+        # Copy Spring Boot JAR
         scp -i ~/.ssh/ec2-key.pem \
           target/*.jar \
           $EC2_USER@$EC2_HOST:~/apps/cricket-bot/
 
-        # Copy Kestra flows configurations folder contents
+        # Copy Kestra flows
         scp -i ~/.ssh/ec2-key.pem \
           kestra-flows/*.yaml \
           $EC2_USER@$EC2_HOST:~/apps/kestra/flows/
@@ -52,39 +53,33 @@ jobs:
         ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
           MASTODON_TOKEN="$MASTODON_TOKEN" \
           DB_PASSWORD="$DB_PASSWORD" \
-          KESTRA_PASSWORD="$KESTRA_PASSWORD" \
           'bash -s' << 'EOF'
-          
-          # 1. Start Kestra Engine Core
+
+          # 1. Start Kestra
           pkill -f "kestra.jar" || true
           sleep 2
           cd ~/apps/kestra
           nohup java -jar kestra.jar server local > kestra.log 2>&1 &
-          echo "Waiting for Kestra service to start up..."
-          sleep 12
+          echo "Waiting for Kestra to start..."
+          sleep 20
 
-          # 2. Loop and register flows using authentication basic flags
+          # 2. Import flows
           for flow in ~/apps/kestra/flows/*.yaml; do
             echo "Importing flow: $flow"
-            curl -X POST http://localhost:8080/api/v1/flows \
-              -u "admin:$KESTRA_PASSWORD" \
-              -H "Content-Type: application/x-yaml" \
-              --data-binary "@$flow"
+            curl -X POST http://localhost:8080/api/v1/flows/import \
+              -H "Content-Type: multipart/form-data" \
+              -F "fileUpload=@$flow"
           done
 
-          # 3. Start Cricket Spring Boot Bot Application
-          cd ~/apps/cricket-bot
-          
-          # Kill any running application process targeting this folder path
+          # 3. Start Spring Boot
           pkill -f "apps/cricket-bot" || true
           sleep 2
-          
-          # Dynamically launch whatever JAR file was uploaded by scp
+          cd ~/apps/cricket-bot
           nohup java -jar *.jar \
             --spring.profiles.active=prod \
             --mastodon.access.token="$MASTODON_TOKEN" \
             --spring.datasource.password="$DB_PASSWORD" \
             > app.log 2>&1 &
 
-          echo "✅ Application started successfully using wildcard selector!"
+          echo "✅ Everything started!"
         EOF
