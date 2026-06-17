@@ -1,0 +1,14 @@
+id: cricket-flush
+namespace: cricket
+
+triggers:
+  - id: flush-schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "59 23 * * *"
+    timezone: Asia/Kolkata
+
+tasks:
+  - id: flush-database
+    type: io.kestra.plugin.core.http.Request
+    uri: http://localhost:8081/test/cleanup-now
+    method: GET

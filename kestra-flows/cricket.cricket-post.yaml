@@ -1,0 +1,24 @@
+id: cricket-post
+namespace: cricket
+
+triggers:
+  - id: post-schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 */2 * * *"
+    timezone: Asia/Kolkata
+
+  - id: wait-for-fetch
+    type: io.kestra.plugin.core.trigger.Flow
+    conditions:
+      - type: io.kestra.plugin.core.condition.ExecutionStatus
+        in:
+          - SUCCESS
+      - type: io.kestra.plugin.core.condition.ExecutionFlow
+        namespace: cricket
+        flowId: cricket-fetch
+
+tasks:
+  - id: post-mastodon
+    type: io.kestra.plugin.core.http.Request
+    uri: http://localhost:8081/test/post-now
+    method: GET
