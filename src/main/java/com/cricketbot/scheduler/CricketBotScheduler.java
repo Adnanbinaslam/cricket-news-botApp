@@ -5,8 +5,9 @@ import com.cricketbot.entity.CricketNews;
 import com.cricketbot.repository.CricketNewsRepository;
 import com.cricketbot.service.CricketNewsService;
 import com.cricketbot.service.MastodonService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,21 +15,19 @@ import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
 
 @Component
+@RequiredArgsConstructor
 public class CricketBotScheduler {
 
-    @Autowired
+    
     private CricketNewsService newsService;
 
-    @Autowired
     private MastodonService mastodonService;
 
-    @Autowired
     private CricketNewsRepository newsRepository;
 
     // Add this line inside the class
     private static final Logger log = LoggerFactory.getLogger(CricketBotScheduler.class);
 
-    @Scheduled(cron = "0 0 0,4,8,12,16,20 * * *", zone = "Asia/Kolkata")
     public void fetchNewsEvery4Hours() {
         log.info("⏰ [SCHEDULED] Fetching cricket news at {} ", LocalDateTime.now());
         try {
@@ -39,7 +38,6 @@ public class CricketBotScheduler {
         }
     }
 
-    @Scheduled(cron = "0 59 23 * * *", zone = "Asia/Kolkata") // 11:59
     public void cleanupPostedNews() {
         log.info("🧹 [SCHEDULED] Cleaning up posted news at {}", LocalDateTime.now());
         try {
@@ -50,7 +48,6 @@ public class CricketBotScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Kolkata")
     public void postToMastodon() {
         log.info("📤 [SCHEDULED] Attempting to post to Mastodon at {}", LocalDateTime.now());
         try {

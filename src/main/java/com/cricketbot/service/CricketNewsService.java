@@ -6,12 +6,14 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URL;
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -21,10 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
+@RequiredArgsConstructor
 public class CricketNewsService {
 
-    @Autowired
-    private CricketNewsRepository repository;
+
+    private final CricketNewsRepository repository;
 
     @Value("${cricket.rss.url}")
     private String rssUrl;
@@ -38,11 +41,11 @@ public class CricketNewsService {
             log.info("🔍 Fetching RSS feed from: {}", rssUrl);
 
             // Parse RSS feed
-            URL feedUrl = new URL(rssUrl);
+            URI feedUrl = URI.create(rssUrl);
 
             SyndFeedInput input = new SyndFeedInput();
 
-            SyndFeed feed = input.build(new XmlReader(feedUrl));
+            SyndFeed feed = input.build(new XmlReader(feedUrl.toURL()));
 
             log.info("📰 Found {} articles in feed", feed.getEntries().size());
 
