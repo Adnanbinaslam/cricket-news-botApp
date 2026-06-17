@@ -35,29 +35,25 @@ jobs:
         chmod 600 ~/.ssh/ec2-key.pem
         ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null
 
-        # Ensure directories exist
         ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
           "mkdir -p ~/apps/cricket-bot ~/apps/kestra/flows"
 
-        # Copy Spring Boot JAR
         scp -i ~/.ssh/ec2-key.pem \
           target/*.jar \
           $EC2_USER@$EC2_HOST:~/apps/cricket-bot/
 
-        # Copy Kestra flows
         scp -i ~/.ssh/ec2-key.pem \
           kestra-flows/*.yaml \
           $EC2_USER@$EC2_HOST:~/apps/kestra/flows/
 
-        # Start everything on EC2
         ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
           MASTODON_TOKEN="$MASTODON_TOKEN" \
           DB_PASSWORD="$DB_PASSWORD" \
           'bash -s' << 'EOF'
 
-          # 1. Kill everything first
-          pkill -f "kestra.jar" || true
-          pkill -f "cricket-bot" || true
+          # 1. Kill by port (reliable!)
+          fuser -k 8080/tcp || true
+          fuser -k 8081/tcp || true
           sleep 3
 
           # 2. Start Spring Boot FIRST
@@ -67,18 +63,18 @@ jobs:
             --mastodon.access.token="$MASTODON_TOKEN" \
             --spring.datasource.password="$DB_PASSWORD" \
             > app.log 2>&1 &
-          echo "Waiting for Spring Boot to start..."
+          echo "Waiting for Spring Boot..."
           sleep 20
 
           # 3. Start Kestra
           cd ~/apps/kestra
           nohup java -jar kestra.jar server local > kestra.log 2>&1 &
-          echo "Waiting for Kestra to start..."
+          echo "Waiting for Kestra..."
           sleep 20
 
           # 4. Import flows
           for flow in ~/apps/kestra/flows/*.yaml; do
-            echo "Importing flow: $flow"
+            echo "Importing: $flow"
             curl -X POST http://localhost:8080/api/v1/flows/import \
               -H "Content-Type: multipart/form-data" \
               -F "fileUpload=@$flow"
