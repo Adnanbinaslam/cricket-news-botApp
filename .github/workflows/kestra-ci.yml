@@ -55,31 +55,39 @@ jobs:
           KESTRA_PASSWORD="$KESTRA_PASSWORD" \
           'bash -s' << 'EOF'
 
-          # 1. Clear out old background files to prevent multiple jar execution conflicts
+          # 1. Clean out duplicate build structures
           cd ~/apps/cricket-bot
           rm -f cricket-bot.jar 2>/dev/null || true
 
-          # 2. Kill only the Spring Boot App process (Leaves Kestra completely untouched and running on 8080!)
+          # 2. Kill running instances to free up ports
           pkill -f "apps/cricket-bot" || true
-          sleep 2
+          pkill -f "kestra.jar" || true
+          sleep 3
 
-          # 3. Launch Spring Boot (It will read its internal configuration or arguments natively)
+          # 3. Start Spring Boot on its default port 8080
           nohup java -jar *.jar \
             --spring.profiles.active=prod \
             --mastodon.access.token="$MASTODON_TOKEN" \
             --spring.datasource.password="$DB_PASSWORD" \
             > app.log 2>&1 &
-          echo "Waiting for Spring Boot backend..."
-          sleep 10
+          echo "Waiting for Spring Boot backend to claim port 8080..."
+          sleep 12
 
-          # 4. Push updated Kestra YAML workflows using your admin dashboard credentials
+          # 4. Start Kestra explicitly on port 8081 using the Micronaut environment override
+          cd ~/apps/kestra
+          export MICRONAUT_SERVER_PORT=8081
+          nohup java -jar kestra.jar server local > kestra.log 2>&1 &
+          echo "Waiting for Kestra service to start up on port 8081..."
+          sleep 15
+
+          # 5. Import workflows to Kestra via port 8081 using your login secrets
           for flow in ~/apps/kestra/flows/*.yaml; do
-            echo "Importing updated flow: $flow"
-            curl -X POST http://localhost:8080/api/v1/flows \
+            echo "Importing flow parameter: $flow"
+            curl -X POST http://localhost:8081/api/v1/flows \
               -u "admin:$KESTRA_PASSWORD" \
               -H "Content-Type: application/x-yaml" \
               --data-binary "@$flow"
           done
 
-          echo "✅ Workflows deployed and app refreshed successfully!"
+          echo "✅ Complete ecosystem deployed with Kestra on port 8081!"
         EOF
