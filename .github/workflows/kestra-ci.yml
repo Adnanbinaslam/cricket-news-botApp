@@ -55,39 +55,38 @@ jobs:
           KESTRA_PASSWORD="$KESTRA_PASSWORD" \
           'bash -s' << 'EOF'
 
-          # 1. Clean out duplicate build structures
+          # 1. Clean out stale background files
           cd ~/apps/cricket-bot
           rm -f cricket-bot.jar 2>/dev/null || true
 
-          # 2. Kill running instances to free up ports
+          # 2. Kill only running instances to free up ports cleanly
           pkill -f "apps/cricket-bot" || true
           pkill -f "kestra.jar" || true
           sleep 3
 
-          # 3. Start Spring Boot on its default port 8080
+          # 3. Start Spring Boot on port 8080
           nohup java -jar *.jar \
             --spring.profiles.active=prod \
             --mastodon.access.token="$MASTODON_TOKEN" \
             --spring.datasource.password="$DB_PASSWORD" \
             > app.log 2>&1 &
-          echo "Waiting for Spring Boot backend to claim port 8080..."
+          echo "Waiting for Spring Boot backend on port 8080..."
           sleep 12
 
-          # 4. Start Kestra explicitly on port 8081 using the Micronaut environment override
+          # 4. Start Kestra explicitly on port 8082
           cd ~/apps/kestra
-          export MICRONAUT_SERVER_PORT=8081
-          nohup java -jar kestra.jar server local > kestra.log 2>&1 &
-          echo "Waiting for Kestra service to start up on port 8081..."
+          nohup env MICRONAUT_SERVER_PORT=8082 java -jar kestra.jar server local > kestra.log 2>&1 &
+          echo "Waiting for Kestra service on port 8082..."
           sleep 15
 
-          # 5. Import workflows to Kestra via port 8081 using your login secrets
+          # 5. Import workflows to Kestra via port 8082
           for flow in ~/apps/kestra/flows/*.yaml; do
             echo "Importing flow parameter: $flow"
-            curl -X POST http://localhost:8081/api/v1/flows \
+            curl -X POST http://localhost:8082/api/v1/flows \
               -u "admin:$KESTRA_PASSWORD" \
               -H "Content-Type: application/x-yaml" \
               --data-binary "@$flow"
           done
 
-          echo "✅ Complete ecosystem deployed with Kestra on port 8081!"
+          echo "✅ Complete ecosystem deployed with Kestra on port 8082!"
         EOF
