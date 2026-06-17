@@ -28,32 +28,36 @@ jobs:
         EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
         DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-
+        KESTRA_PASSWORD: ${{ secrets.KESTRA_PASSWORD }}
       run: |
         mkdir -p ~/.ssh
         echo "$EC2_SSH_KEY" > ~/.ssh/ec2-key.pem
         chmod 600 ~/.ssh/ec2-key.pem
         ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null
 
-        ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
-          "mkdir -p ~/apps/cricket-bot ~/apps/kestra/flows"
+        # Ensure directories exist on remote target server host
+        ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST "mkdir -p ~/apps/cricket-bot/ ~/apps/kestra/flows/"
 
+        # Copy Spring Boot JAR artifact
         scp -i ~/.ssh/ec2-key.pem \
           target/*.jar \
           $EC2_USER@$EC2_HOST:~/apps/cricket-bot/
 
+        # Copy Kestra flows configurations folder contents
         scp -i ~/.ssh/ec2-key.pem \
           kestra-flows/*.yaml \
           $EC2_USER@$EC2_HOST:~/apps/kestra/flows/
 
+        # Start everything on EC2
         ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
           MASTODON_TOKEN="$MASTODON_TOKEN" \
           DB_PASSWORD="$DB_PASSWORD" \
+          KESTRA_PASSWORD="$KESTRA_PASSWORD" \
           'bash -s' << 'EOF'
 
-          # 1. Kill by port (reliable!)
-          fuser -k 8080/tcp || true
-          fuser -k 8081/tcp || true
+          # 1. Kill stale instances safely using folder name paths (much more stable than killing active TCP sockets directly)
+          pkill -f "apps/cricket-bot" || true
+          pkill -f "kestra.jar" || true
           sleep 3
 
           # 2. Start Spring Boot FIRST
@@ -63,22 +67,23 @@ jobs:
             --mastodon.access.token="$MASTODON_TOKEN" \
             --spring.datasource.password="$DB_PASSWORD" \
             > app.log 2>&1 &
-          echo "Waiting for Spring Boot..."
-          sleep 20
+          echo "Waiting for Spring Boot backend to bind port..."
+          sleep 15
 
-          # 3. Start Kestra
+          # 3. Start Kestra Orchestration Server Engine
           cd ~/apps/kestra
           nohup java -jar kestra.jar server local > kestra.log 2>&1 &
-          echo "Waiting for Kestra..."
-          sleep 20
+          echo "Waiting for Kestra service to start up..."
+          sleep 15
 
-          # 4. Import flows
+          # 4. Import workflows using your active admin account secrets bypass
           for flow in ~/apps/kestra/flows/*.yaml; do
-            echo "Importing: $flow"
-            curl -X POST http://localhost:8080/api/v1/flows/import \
-              -H "Content-Type: multipart/form-data" \
-              -F "fileUpload=@$flow"
+            echo "Importing flow parameter: $flow"
+            curl -X POST http://localhost:8080/api/v1/flows \
+              -u "admin:$KESTRA_PASSWORD" \
+              -H "Content-Type: application/x-yaml" \
+              --data-binary "@$flow"
           done
 
-          echo "✅ Everything started!"
+          echo "✅ Application and pipelines started successfully!"
         EOF
