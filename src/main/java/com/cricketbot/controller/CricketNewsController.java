@@ -61,28 +61,7 @@ public class CricketNewsController {
         return ResponseEntity.ok(newsList);
     }
 
-    @GetMapping("/post")
-    public ResponseEntity<Map<String, Object>> postNews() throws Exception {
-        log.info("📤 Post triggered via Kestra");
-        Map<String, Object> response = new HashMap<>();
-        
-        CricketNews news = newsRepository.findFirstByPostedFalseOrderByPublishedDateAsc();
-        if (news == null) {
-            log.warn("⚠️ No unposted news available");
-            response.put("success", false);
-            response.put("message", "No unposted news available");
-            return ResponseEntity.ok(response);
-        }
-        
-        mastodonService.postCricketNews(news);
-        news.setPosted(true);
-        newsRepository.save(news);
-        log.info("✅ Posted successfully: {}", news.getTitle());
-        
-        response.put("success", true);
-        response.put("message", "Posted successfully: " + news.getTitle());
-        return ResponseEntity.ok(response);
-    }
+    
     
     /**
      * Get total count of news
