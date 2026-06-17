@@ -28,6 +28,7 @@ jobs:
         EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
         DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        KESTRA_PASSWORD: ${{ secrets.KESTRA_PASSWORD }} # Passing password to execution shell context
       run: |
         mkdir -p ~/.ssh
         echo "$EC2_SSH_KEY" > ~/.ssh/ec2-key.pem
@@ -51,6 +52,7 @@ jobs:
         ssh -i ~/.ssh/ec2-key.pem $EC2_USER@$EC2_HOST \
           MASTODON_TOKEN="$MASTODON_TOKEN" \
           DB_PASSWORD="$DB_PASSWORD" \
+          KESTRA_PASSWORD="$KESTRA_PASSWORD" \
           'bash -s' << 'EOF'
           
           # 1. Start Kestra Engine Core
@@ -61,10 +63,11 @@ jobs:
           echo "Waiting for Kestra service to start up..."
           sleep 12
 
-          # 2. Loop and register flows to Kestra via standard text/yaml body API
+          # 2. Loop and register flows using authentication basic flags
           for flow in ~/apps/kestra/flows/*.yaml; do
             echo "Importing flow: $flow"
             curl -X POST http://localhost:8080/api/v1/flows \
+              -u "admin:$KESTRA_PASSWORD" \
               -H "Content-Type: application/x-yaml" \
               --data-binary "@$flow"
           done
@@ -72,19 +75,16 @@ jobs:
           # 3. Start Cricket Spring Boot Bot Application
           cd ~/apps/cricket-bot
           
-          # Kill only based on the explicit runner context tag name string to prevent self-killing
-          pkill -f "cricket-runner-active" || true
+          # Kill any running application process targeting this folder path
+          pkill -f "apps/cricket-bot" || true
           sleep 2
           
-          # Move active build JAR to a consistent running name reference 
-          mv cricket-news-bot-*.jar cricket-runner-active.jar 2>/dev/null || true
-          
-          # Execute the application passing production parameters securely
-          nohup java -jar cricket-runner-active.jar \
+          # Dynamically launch whatever JAR file was uploaded by scp
+          nohup java -jar *.jar \
             --spring.profiles.active=prod \
             --mastodon.access.token="$MASTODON_TOKEN" \
             --spring.datasource.password="$DB_PASSWORD" \
             > app.log 2>&1 &
 
-          echo "✅ Application and pipelines started successfully!"
+          echo "✅ Application started successfully using wildcard selector!"
         EOF
